@@ -1,0 +1,14 @@
+scikit-learn
+psycopg2-binary==2.9.1
+pandas
+numpy
+requests==2.26.0
+xgboost==1.5.1
+scikit-optimize
+Pillow==9.2.0
+glob2
+wheel
+lightgbm
+intel-openmp
+zipfile36
+

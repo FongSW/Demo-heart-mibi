@@ -1,0 +1,191 @@
+version: '3.9'
+
+x-airflow-common:
+  &airflow-common
+  image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.4.1-python3.10}
+  # image: Dockerfile
+  environment:
+    &airflow-common-env
+    # AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    # AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
+    # AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
+    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'true'
+    AIRFLOW__API__AUTH_BACKEND: 'airflow.api.auth.backend.basic_auth'
+    _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/logs:/opt/airflow/logs
+    - ./airflow/plugins:/opt/airflow/plugins
+    - ./airflow/dags/log_train_model/log_quantitative_model:/opt/airflow/log_quantitative_model
+    - ./app:/app
+    - ./airflow/data:/opt/airflow/data/
+    - ./grafana:/grafana
+  user: "${AIRFLOW_UID:-50000}:${AIRFLOW_GID:-50000}"
+
+services:
+  core_api:
+    build: ./Docker_folder/Docker_python/
+    container_name: "api_assistant_heart_mibi"
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./app:/app
+      - ./airflow/dags/log_train_model/:/data_log/log_train_model/
+    networks:
+      - default
+      - HEART_MIBI_CONNECTION
+    depends_on:
+      - rabbitmq
+    
+  celery_worker:
+    container_name: "celery_worker"
+    build: ./Docker_folder/Docker_celery/worker
+    volumes:
+      - ./app:/app
+    depends_on:
+      - rabbitmq
+    networks:
+      - default
+      - HEART_MIBI_CONNECTION
+
+  celery_flower:
+    container_name: "celery_flower"
+    build: ./Docker_folder/Docker_celery/flower
+    ports:
+      - 5555:5555
+    depends_on:
+      - rabbitmq
+      - core_api
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: 'rabbitmq'
+    ports:
+      - 5672:5672
+      - 15672:15672
+    environment:
+      - RABBITMQ_USERNAME=guest
+      - RABBITMQ_PASSWORD=guest
+      - RABBITMQ_PORT=5672
+    networks:
+      - default
+      - HEART_MIBI_CONNECTION
+  
+  # redis_server:
+  #   image: redis
+  #   container_name: 'redis'
+  #   ports:
+  #     - 6379:6379
+
+
+  postgres:
+    container_name: postgres_db
+    image: 'postgres:latest'
+    restart: always
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - db:/var/lib/postgresql/data
+
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+
+  pgadmin:
+    container_name: pgadmin4_container
+    image: dpage/pgadmin4
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: 62070271@it.kmitl.ac.th
+      PGADMIN_DEFAULT_PASSWORD: root
+    ports:
+      - "5050:80"
+
+  
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - 8080:8080
+    networks:
+      - default
+      - HEART_MIBI_CONNECTION
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    restart: always
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type SchedulerJob --hostname "$${HOSTNAME}"']
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    restart: always
+    networks:
+      - default
+      - HEART_MIBI_CONNECTION
+
+  airflow-init:
+    <<: *airflow-common
+    command: version
+    build: ./Docker_folder/Docker_airflow/
+    environment:
+      <<: *airflow-common-env
+      _AIRFLOW_DB_UPGRADE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
+      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+    networks:
+      - default
+      - HEART_MIBI_CONNECTION
+  
+  grafana:
+    image: grafana/grafana-oss:9.1.5-ubuntu
+    # build: ./Docker_folder/Docker_grafana/C:\Users\MY GOD\Desktop\D_EN\v4\Final_project_V0\airflow\dags\log_train_model\trainfer_model_fit
+    container_name: grafana
+    environment:
+      GF_INSTALL_PLUGINS: "marcusolsson-csv-datasource"
+      GF_PLUGIN_MARCUSOLSSON_CSV_DATASOURCE_ALLOW_LOCAL_MODE: 'true'
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_AUTH_DISABLE_SIGNOUT_MENU: "true"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    ports:
+      - 9000:3000
+    volumes:
+      - ./grafana:/etc/grafana
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/grafana.ini:/etc/grafana/grafana.ini
+      - ./airflow/dags/log_train_model/log_train_quantitative_model.csv:/airflow/dags/log_train_model/log_train_quantitative_model.csv
+      - grafana_data:/var/lib/grafana
+    networks:
+      - default
+      - HEART_MIBI_CONNECTION
+
+volumes:
+  db:
+    driver: local
+  grafana_data:
+    name: grafana_data
+
+networks:
+  HEART_MIBI_CONNECTION:
+    name: HEART_MIBI_CONNECTION
+    external: true
+  grafana-data:
+    external: true
