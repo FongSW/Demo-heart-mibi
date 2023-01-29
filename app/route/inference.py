@@ -44,25 +44,25 @@ async def inference_per_patient_per_vessel(data: inference_ocr_schema):
 
     result_predict_cag = int(result_predict_cag)
     #Demo
-    result_predict_vessel_1 = 1
-    result_predict_vessel_2 = 1
-    result_predict_vessel_3 = 1
+    result_predict_rca = 1
+    result_predict_lad = 1
+    result_predict_lcx = 1
     return {
-        "vessel_1" : result_predict_vessel_1,
-        "vessel_2" : result_predict_vessel_2,
-        "vessel_3" : result_predict_vessel_3,
+        "predict_rca" : result_predict_rca,
+        "predict_lad" : result_predict_lad,
+        "predict_lcx" : result_predict_lcx,
         "predict_cag" : result_predict_cag
     }
 
 @inference_route.post("/ocr/vessel/")
 async def inference_vessel(data: inference_ocr_schema):
-    result_predict_vessel_1 = 1
-    result_predict_vessel_2 = 1
-    result_predict_vessel_3 = 1
+    result_predict_rca = 1
+    result_predict_lad = 1
+    result_predict_lcx = 1
     return {
-        "vessel_1" : result_predict_vessel_1,
-        "vessel_2" : result_predict_vessel_2,
-        "vessel_3" : result_predict_vessel_3,
+        "predict_rca" : result_predict_rca,
+        "predict_lad" : result_predict_lad,
+        "predict_lcx" : result_predict_lcx,
     }
 
 

@@ -7,14 +7,6 @@ from app.route.inference import inference_route
 from app.route.feature_extraction import extraction_route
 from app.celery.celery_utils import create_celery
 
-# app = FastAPI()
-# app.include_router(api_route)
-# app.include_router(test_route)
-
-# @app.get("/")
-# async def root():
-#  return {'msg':'This API from project AI_assistant_heart_mibi'} inference
-
 def create_app() -> FastAPI:
     current_app = FastAPI(title="Web Heart-mibi")
     current_app.celery_app = create_celery()
