@@ -20,14 +20,14 @@ from app.schema.utility_schema import ocr_schema
 
 extraction_route = APIRouter(prefix='/feature_extraction', tags=['feature_extraction'], responses={404: {"description": "Not found"}})
 
-@extraction_route.get("/ocr/{task_id}")
+@extraction_route.get("/{task_id}")
 async def get_task_status(task_id: str) -> dict:
     """
     Return the status of the submitted Task
     """
     return get_task_info(task_id)
 
-@extraction_route.post("/ocr/")
+@extraction_route.post("/")
 async def extract_image(data: ocr_schema):
     # Extract data
     task = ocr_extract_task.apply_async(args=[data.hn, data.client_root_path], countdown=10)     
